@@ -11,7 +11,7 @@
  *   - 本地预览 Pages 构建：REPO_NAME=my-repo npm run build:pages
  *   - CI（deploy.yml）会直接通过 CLIENT_BASE_PATH 注入真实 repo 名
  */
-import { readFileSync, copyFileSync, existsSync } from 'node:fs'
+import { readFileSync, copyFileSync, existsSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -63,16 +63,45 @@ if (buildResult.status !== 0) {
   process.exit(buildResult.status ?? 1)
 }
 
-// 4. 复制 dist/index.html -> dist/404.html
+// 4. 替换 index.html 中的 miaoda 模板变量为实际值（GitHub Pages 无模板引擎）
+const indexHtml = resolve(root, outDir, 'index.html')
+if (existsSync(indexHtml)) {
+  let html = readFileSync(indexHtml, 'utf-8')
+  const replacements = {
+    '{{appId}}': '',
+    '{{userId}}': '',
+    '{{tenantId}}': '',
+    '{{userName}}': '',
+    '{{csrfToken}}': '',
+    '{{environment}}': 'production',
+    '{{basename}}': basePath,
+    '{{appName}}': '安全生产工作台',
+    '{{appAvatar}}': '',
+    '{{appDescription}}': '企业安全管理工作台',
+  }
+  for (const [tpl, val] of Object.entries(replacements)) {
+    html = html.replaceAll(tpl, val)
+  }
+  // 移除 miaoda 平台专用的监控脚本（slardar / tea），避免在 GitHub Pages 上报错
+  html = html.replace(/<script>\s*slardarScript[\s\S]*?<\/script>/g, '')
+  html = html.replace(/<script>\s*teaScript[\s\S]*?<\/script>/g, '')
+  html = html.replace(/<script>\s*\(function\s*\(g\)[\s\S]*?\}\)\('KSlardarWeb'\);[\s\S]*?<\/script>/g, '')
+  html = html.replace(/<script>\s*\(function\s*\(win,\s*export_obj\)[\s\S]*?<\/script>/g, '')
+  html = html.replace(/<script\s+src="https:\/\/sf3-scmcdn-cn[^"]*"[^>]*><\/script>/g, '')
+  html = html.replace(/<script\s+src="https:\/\/lf3-static[^"]*"[^>]*><\/script>/g, '')
+  writeFileSync(indexHtml, html, 'utf-8')
+  console.log('[build-pages] 已替换 miaoda 模板变量并清理平台监控脚本')
+} else {
+  console.warn('[build-pages] 未找到 dist/index.html')
+}
+
+// 5. 复制 dist/index.html -> dist/404.html
 //    GitHub Pages 在深层路由返回 404.html 时，若 404.html 即为 SPA 入口，
 //    前端路由会直接按当前 URL 渲染对应视图，无需额外重定向逻辑。
-const indexHtml = resolve(root, outDir, 'index.html')
 const notFoundHtml = resolve(root, outDir, '404.html')
 if (existsSync(indexHtml)) {
   copyFileSync(indexHtml, notFoundHtml)
   console.log('[build-pages] 已复制 dist/index.html -> dist/404.html')
-} else {
-  console.warn('[build-pages] 未找到 dist/index.html，跳过 404.html 生成')
 }
 
 console.log('[build-pages] 构建完成 -> dist/')
