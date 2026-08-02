@@ -1,0 +1,16 @@
+{
+  "brand": {
+    "department": "安全部",
+    "title": "中牛安全",
+    "subtitle": "Personal Workbench"
+  },
+  "navItems": [
+    { "path": "/", "label": "未整改安全隐患", "icon": "ClipboardList", "end": true },
+    { "path": "/summary", "label": "隐患汇总", "icon": "BarChart3", "end": false },
+    { "path": "/memo", "label": "备忘录", "icon": "StickyNote", "end": false },
+    { "path": "/files", "label": "安全资料", "icon": "FolderOpen", "end": false }
+  ],
+  "adminNavItems": [
+    { "path": "/settings", "label": "账号管理", "icon": "Settings", "end": false }
+  ]
+}

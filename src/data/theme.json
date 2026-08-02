@@ -1,0 +1,21 @@
+{
+  "primaryColor": "#b791ff",
+  "colors": {
+    "primary": "#b791ff",
+    "primaryLight": "#c8a9fc",
+    "primaryLighter": "#dcc9fd",
+    "primaryDark": "#9b6ff0",
+    "primarySubtitle": "#e8d9ff",
+    "loginGradientStart": "#ede9fe",
+    "loginGradientMid": "#f5f3ff",
+    "loginGradientEnd": "#faf5ff",
+    "loginBlur1": "#c4b5fd",
+    "loginBlur2": "#a78bfa",
+    "adminBadgeBg": "#ede9fe",
+    "adminBadgeText": "#7c3aed",
+    "importantBorder": "#b791ff",
+    "starActive": "#f59e0b",
+    "starInactive": "#9ca3af",
+    "completedText": "#9ca3af"
+  }
+}

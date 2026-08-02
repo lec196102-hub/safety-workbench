@@ -1,0 +1,55 @@
+{
+  "storageKeys": {
+    "token": "safety_token",
+    "user": "safety_user"
+  },
+  "fileLimits": {
+    "hazardAttachmentMaxSize": 10485760,
+    "safetyFileMaxSize": 20971520,
+    "bodyLimit": "10mb"
+  },
+  "pagination": {
+    "defaultPageSize": 10
+  },
+  "acceptedFileTypes": {
+    "hazardAttachment": "image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx",
+    "excelImport": ".xlsx,.xls"
+  },
+  "auth": {
+    "defaultAdmin": {
+      "id": "admin",
+      "username": "admin",
+      "password": "admin123",
+      "role": "admin"
+    },
+    "tokenExpiry": "7d",
+    "minPasswordLength": 6,
+    "bcryptSaltRounds": 10,
+    "jwtSecret": "safety-workbench-secret-key-2024"
+  },
+  "server": {
+    "port": 3001,
+    "apiPrefix": "/api",
+    "uploadDir": "data/uploads",
+    "fileUploadDir": "data/uploads/files"
+  },
+  "idPrefixes": {
+    "user": "user_",
+    "folder": "folder-",
+    "file": "file-",
+    "attachment": "att-"
+  },
+  "defaultFolders": [
+    { "id": "default", "name": "默认文件夹", "isDefault": true },
+    { "id": "f1", "name": "安全培训资料", "isDefault": false },
+    { "id": "f2", "name": "检查记录表", "isDefault": false }
+  ],
+  "yearOptions": ["2023", "2024", "2025", "2026"],
+  "deepseek": {
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "maxTokens": 2048,
+    "temperature": 0.7,
+    "workerUrl": "https://safety-ai-proxy.lec196102.workers.dev"
+  }
+}

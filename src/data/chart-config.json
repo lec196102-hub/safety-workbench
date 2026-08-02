@@ -1,0 +1,20 @@
+{
+  "axisLineColor": "#e5e7eb",
+  "axisLabelColor": "#6b7280",
+  "splitLineColor": "#f3f4f6",
+  "seriesColors": {
+    "line": "#b791ff",
+    "areaGradient1": "rgba(183, 145, 255, 0.3)",
+    "areaGradient2": "rgba(183, 145, 255, 0.05)",
+    "bar": "#b791ff",
+    "barGradient1": "#b791ff",
+    "barGradient2": "rgba(183, 145, 255, 0.3)"
+  },
+  "ringChart": {
+    "completedColor": "#b791ff",
+    "remainingColor": "#f3f4f6",
+    "titleColor": "#b791ff",
+    "subtitleColor": "#9ca3af"
+  },
+  "progressBarColor": "#22c55e"
+}

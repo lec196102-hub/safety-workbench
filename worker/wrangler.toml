@@ -1,0 +1,8 @@
+name = "safety-ai-proxy"
+main = "ai-proxy.js"
+compatibility_date = "2024-01-01"
+
+# DeepSeek API Key 属于敏感信息，请勿写在此文件中。
+# 请使用 wrangler secret 命令设置：
+#   wrangler secret put DEEPSEEK_API_KEY
+# 然后在交互提示中粘贴你的 DeepSeek API Key。

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+    <!--
+      GitHub Pages SPA 404 重定向（官方推荐技巧）
+      --------------------------------------------------------------
+      当访问深层路由（例如 /repo-name/daily）时，GitHub Pages 找不到对应的
+      静态文件，会返回 404.html。本脚本将原始路径编码为查询串后重定向到
+      index.html，由前端路由恢复目标视图。
+
+      说明：
+      - 脚本会从当前路径推断 repo 名称作为 base path（项目站点路径首段即为
+        repo 名；用户/组织站点 <user>.github.io 没有首段，此时保留 0 段）。
+      - 采用 spa-github-pages 的 ?/ 重定向约定：index.html 侧可读取该查询串
+        并通过 history.replaceState 恢复真实路由。
+      - 参考: https://github.com/rafgraph/spa-github-pages
+    -->
+    <script>
+      (function () {
+        var l = window.location;
+
+        // 将路径拆分为非空段
+        var segments = l.pathname.split('/').filter(function (s) {
+          return s.length > 0;
+        });
+
+        // 从当前路径推断 base path：
+        //   - 项目站点 (user.github.io/repo/...)：保留 1 段（repo 名）
+        //   - 用户/组织站点 (user.github.io/...)：保留 0 段
+        var keep = segments.length > 1 ? 1 : 0;
+        var base = segments.slice(0, keep);
+        var rest = segments.slice(keep);
+
+        var basePath = base.length ? '/' + base.join('/') : '';
+
+        // 将原始路径 + 查询串编码后重定向到 index.html
+        l.replace(
+          basePath + '/?/' +
+            rest.join('/') +
+            (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+            l.hash
+        );
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- 404 重定向占位：脚本已将页面跳转至 index.html -->
+  </body>
+</html>

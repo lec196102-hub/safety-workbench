@@ -1,0 +1,44 @@
+{
+  "loginPage": {
+    "title": "中牛安全",
+    "subtitle": "Safety Management Workbench"
+  },
+  "pages": {
+    "dailyHazards": {
+      "title": "未整改安全隐患",
+      "description": "查看和管理未整改及正在整改的安全隐患"
+    },
+    "hazardSummary": {
+      "title": "隐患汇总",
+      "description": "全量隐患数据汇总与多维度筛选"
+    },
+    "memo": {
+      "title": "备忘录",
+      "description": "记录安全工作中的待办事项和重要提醒"
+    },
+    "safetyFiles": {
+      "title": "安全资料",
+      "description": "管理安全文档、培训资料和检查记录"
+    },
+    "accountSettings": {
+      "title": "账号管理",
+      "description": "管理系统用户账号与权限设置"
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "message": "页面不存在",
+    "action": "返回首页"
+  },
+  "userRoles": {
+    "admin": "管理员",
+    "user": "子账号"
+  },
+  "fieldLabels": {
+    "date": "日期",
+    "location": "位置",
+    "description": "问题描述",
+    "responsible": "责任人",
+    "acceptTime": "验收时间"
+  }
+}

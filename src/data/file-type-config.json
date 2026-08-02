@@ -1,0 +1,15 @@
+{
+  "fileTypeColors": {
+    "image": "#22c55e",
+    "pdf": "#ef4444",
+    "spreadsheet": "#22c55e",
+    "word": "#3b82f6",
+    "default": "#b791ff"
+  },
+  "typeMatchers": [
+    { "type": "image", "extensions": ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"] },
+    { "type": "pdf", "extensions": ["pdf"] },
+    { "type": "spreadsheet", "extensions": ["xlsx", "xls", "csv"] },
+    { "type": "word", "extensions": ["doc", "docx"] }
+  ]
+}

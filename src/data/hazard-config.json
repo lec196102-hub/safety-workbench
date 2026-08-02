@@ -1,0 +1,36 @@
+{
+  "statusValues": {
+    "UNFIXED": "unfixed",
+    "FIXING": "fixing",
+    "FIXED": "fixed"
+  },
+  "statusLabels": {
+    "unfixed": "未整改",
+    "fixing": "正在整改",
+    "fixed": "已整改"
+  },
+  "statusColors": {
+    "unfixed": "#ef4444",
+    "fixing": "#f59e0b",
+    "fixed": "#22c55e"
+  },
+  "statusFlow": ["unfixed", "fixing", "fixed"],
+  "statusKeywords": {
+    "fixed": ["是", "已整改", "已完成", "完成", "true", "1", "yes", "done", "completed", "finished"],
+    "fixing": ["正在整改", "整改中", "进行中", "处理中", "in progress", "progress", "fixing", "working", "2"]
+  },
+  "updatableFields": ["date", "location", "description", "responsible", "accept_time", "status"],
+  "dbFieldMap": {
+    "date": "date",
+    "location": "location",
+    "description": "description",
+    "responsible": "responsible",
+    "acceptTime": "accept_time",
+    "status": "status"
+  },
+  "importDefaults": {
+    "location": "未填写",
+    "description": "未填写",
+    "responsible": "未填写"
+  }
+}

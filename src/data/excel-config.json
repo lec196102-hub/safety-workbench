@@ -1,0 +1,70 @@
+{
+  "systemFields": [
+    { "key": "date", "label": "日期", "required": true },
+    { "key": "location", "label": "位置", "required": true },
+    { "key": "description", "label": "问题描述", "required": true },
+    { "key": "responsible", "label": "责任人", "required": true },
+    { "key": "acceptTime", "label": "验收时间", "required": false },
+    { "key": "status", "label": "整改状态", "required": false }
+  ],
+  "columnAliases": {
+    "序号": "index",
+    "编号": "index",
+    "日期": "date",
+    "隐患日期": "date",
+    "发现日期": "date",
+    "位置": "location",
+    "地点": "location",
+    "隐患位置": "location",
+    "问题描述": "description",
+    "描述": "description",
+    "隐患描述": "description",
+    "隐患内容": "description",
+    "责任人": "responsible",
+    "负责人": "responsible",
+    "整改责任人": "responsible",
+    "验收时间": "acceptTime",
+    "整改期限": "acceptTime",
+    "截止日期": "acceptTime",
+    "完成时间": "acceptTime",
+    "是否完成整改": "status",
+    "整改状态": "status",
+    "状态": "status",
+    "是否已整改": "status",
+    "完成状态": "status"
+  },
+  "templateColumnWidths": [
+    { "wch": 6 },
+    { "wch": 12 },
+    { "wch": 18 },
+    { "wch": 30 },
+    { "wch": 10 },
+    { "wch": 12 },
+    { "wch": 12 }
+  ],
+  "exportColumns": [
+    "序号",
+    "日期",
+    "位置",
+    "问题描述",
+    "责任人",
+    "验收时间",
+    "整改状态",
+    "附件数量"
+  ],
+  "exportColumnWidths": [
+    { "wch": 6 },
+    { "wch": 12 },
+    { "wch": 18 },
+    { "wch": 30 },
+    { "wch": 10 },
+    { "wch": 12 },
+    { "wch": 10 },
+    { "wch": 10 }
+  ],
+  "acceptedFileTypes": ".xlsx,.xls",
+  "exportNames": {
+    "dailyHazards": "未整改安全隐患",
+    "hazardSummary": "安全隐患汇总"
+  }
+}
