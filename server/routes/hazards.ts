@@ -305,16 +305,27 @@ router.post('/:id/attachments', authMiddleware, upload.single('file'), (req, res
     res.status(404).json({ error: '隐患不存在' });
     return;
   }
+
+  // 修复文件名编码：multer 的 originalname 可能是 Latin-1 误解码的 UTF-8
+  let fileName = req.file.originalname;
+  if (/[\x80-\xFF]{3,}/.test(fileName) && !/[\u4e00-\u9fff\u3040-\u309F\u30A0-\u30FF]/.test(fileName)) {
+    // 检测到 mojibake：尝试从 Latin-1 字节恢复 UTF-8
+    try {
+      const decoded = Buffer.from(fileName, 'latin1').toString('utf-8');
+      if (/[\u4e00-\u9fff]/.test(decoded)) fileName = decoded;
+    } catch { /* 保持原名 */ }
+  }
+
   const attId = `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const uploadTime = formatTime(new Date().toISOString());
   db.prepare(`
     INSERT INTO attachments (id, hazard_id, name, size, type, file_path, upload_time)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(attId, id, req.file.originalname, req.file.size, req.file.mimetype, req.file.path, uploadTime);
+  `).run(attId, id, fileName, req.file.size, req.file.mimetype, req.file.path, uploadTime);
 
   res.json({
     id: attId,
-    name: req.file.originalname,
+    name: fileName,
     size: req.file.size,
     type: req.file.mimetype,
     url: `/api/hazards/attachments/${attId}/file`,
@@ -347,8 +358,18 @@ router.get('/attachments/:attId/file', authMiddleware, (req, res) => {
     res.status(404).json({ error: '文件不存在' });
     return;
   }
+  const stat = fs.statSync(att.file_path);
   res.setHeader('Content-Type', att.type);
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(att.name)}"`);
+  res.setHeader('Content-Length', stat.size);
+  // 尝试修复文件名：如果已经是 mojibake，从磁盘文件名提取后备名称
+  let displayName = att.name;
+  const diskName = path.basename(att.file_path);
+  // 如果原始名称包含乱码特征（连续高字节 Latin-1），用磁盘文件名作为显示名
+  if (/[\x80-\xFF]{3,}/.test(displayName) && !/[\u4e00-\u9fff]/.test(displayName)) {
+    displayName = diskName;
+  }
+  const encoded = encodeURIComponent(displayName);
+  res.setHeader('Content-Disposition', `attachment; filename="${encoded}"; filename*=UTF-8''${encoded}`);
   fs.createReadStream(att.file_path).pipe(res);
 });
 

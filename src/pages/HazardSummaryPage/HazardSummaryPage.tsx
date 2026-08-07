@@ -117,6 +117,8 @@ export default function HazardSummaryPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHazard, setPreviewHazard] = useState<IHazard | null>(null);
+  // 图片预览（带认证的 blob URL）
+  const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editField, setEditField] = useState<EditableField | null>(null);
   const [editHazard, setEditHazard] = useState<IHazard | null>(null);
@@ -914,8 +916,19 @@ export default function HazardSummaryPage() {
                            size="icon"
                            variant="ghost"
                            className="size-8"
-                           onClick={() => {
-                             window.open(att.url || att.dataUrl, '_blank');
+                           onClick={async () => {
+                             try {
+                               const token = localStorage.getItem(appConfig.storageKeys.token || 'auth_token');
+                               const res = await fetch(att.url || att.dataUrl || '', {
+                                 headers: token ? { Authorization: `Bearer ${token}` } : {},
+                               });
+                               if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                               const blob = await res.blob();
+                               const url = URL.createObjectURL(blob);
+                               setImagePreview({ url, name: att.name });
+                             } catch (e) {
+                               toast.error('预览失败，请重试');
+                             }
                            }}
                            title="预览图片"
                          >
@@ -927,14 +940,27 @@ export default function HazardSummaryPage() {
                           size="icon"
                           variant="ghost"
                           className="size-8"
-                          onClick={() => {
-                            const a = document.createElement('a');
-                            a.href = att.url || att.dataUrl || '';
-                            a.download = att.name;
-                            a.target = '_blank';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem(appConfig.storageKeys.token || 'auth_token');
+                              const res = await fetch(att.url || att.dataUrl || '', {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              const ext = (att.url || att.dataUrl || '').match(/\.[0-9a-z]+$/i)?.[0] || '';
+                              const safeName = att.name?.replace(/[^a-zA-Z0-9\u4e00-\u9fff._-]/g, '_') || `download${ext}`;
+                              a.download = safeName;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              setTimeout(() => URL.revokeObjectURL(url), 1000);
+                            } catch (e) {
+                              toast.error('下载失败，请重试');
+                            }
                           }}
                           title="下载附件"
                         >
@@ -963,6 +989,31 @@ export default function HazardSummaryPage() {
               关闭
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 图片预览弹窗（带认证） */}
+      <Dialog open={!!imagePreview} onOpenChange={(open) => { if (!open) { URL.revokeObjectURL(imagePreview?.url || ''); setImagePreview(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto p-0">
+          {imagePreview && (
+            <>
+              <div className="sticky top-0 z-10 flex items-center justify-between bg-background/95 backdrop-blur px-6 py-3 border-b">
+                <DialogTitle className="text-sm font-medium truncate max-w-[70%]">
+                  {imagePreview.name}
+                </DialogTitle>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => { URL.revokeObjectURL(imagePreview.url); setImagePreview(null); }}>
+                  ✕
+                </Button>
+              </div>
+              <div className="flex items-center justify-center p-4 min-h-[200px]">
+                <img
+                  src={imagePreview.url}
+                  alt={imagePreview.name}
+                  className="max-w-full max-h-[75vh] object-contain rounded"
+                />
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
