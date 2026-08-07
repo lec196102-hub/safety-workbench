@@ -33,8 +33,8 @@ function formatTime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// 获取文件夹列表
-router.get('/folders', authMiddleware, (_req, res) => {
+// 获取文件夹列表（仅管理员）
+router.get('/folders', authMiddleware, adminMiddleware, (_req, res) => {
   const rows = db.prepare('SELECT * FROM folders ORDER BY is_default DESC, create_time ASC').all() as any[];
   const folders = rows.map((row) => ({
     id: row.id,
@@ -96,8 +96,8 @@ router.delete('/folders/:id', authMiddleware, adminMiddleware, (req, res) => {
   res.json({ message: '文件夹已删除' });
 });
 
-// 获取文件列表（按文件夹）
-router.get('/files', authMiddleware, (req, res) => {
+// 获取文件列表（按文件夹）（仅管理员）
+router.get('/files', authMiddleware, adminMiddleware, (req, res) => {
   const { folderId, keyword } = req.query;
   let sql = 'SELECT * FROM files WHERE 1=1';
   const params: any[] = [];
@@ -169,8 +169,8 @@ router.delete('/files/:id', authMiddleware, adminMiddleware, (req, res) => {
   res.json({ message: '文件已删除' });
 });
 
-// 下载/预览文件
-router.get('/files/:id/download', authMiddleware, (req, res) => {
+// 下载/预览文件（仅管理员）
+router.get('/files/:id/download', authMiddleware, adminMiddleware, (req, res) => {
   const { id } = req.params;
   const file = db.prepare('SELECT * FROM files WHERE id = ?').get(id) as any;
   if (!file) {

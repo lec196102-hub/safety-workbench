@@ -1,20 +1,21 @@
-// DeepSeek API 客户端
-// 文档：https://api-docs.deepseek.com/zh-cn/
+// AI 大模型客户端（支持火山引擎 ARK API / DeepSeek API）
+// 火山引擎 ARK 文档：https://www.volcengine.com/docs/82379/1298459
 // 使用 OpenAI 兼容格式，通过 fetch 调用，无需额外 SDK 依赖
 
 import { appConfig } from './config';
 import { logger } from './logger';
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const DEEPSEEK_BASE_URL = appConfig.deepseek.baseUrl;
-const DEEPSEEK_MODEL = appConfig.deepseek.model;
+// 优先使用 ARK_API_KEY（火山引擎），兼容旧的 DEEPSEEK_API_KEY
+const AI_API_KEY = process.env.ARK_API_KEY || process.env.DEEPSEEK_API_KEY || '';
+const AI_BASE_URL = appConfig.deepseek.baseUrl;
+const AI_MODEL = appConfig.deepseek.model;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export interface DeepSeekResponse {
+export interface ChatResponse {
   content: string;
   usage?: {
     prompt_tokens: number;
@@ -24,7 +25,7 @@ export interface DeepSeekResponse {
 }
 
 /**
- * 调用 DeepSeek Chat Completions API
+ * 调用 AI Chat Completions API
  * 支持 JSON Output 模式（response_format: { type: 'json_object' }）
  */
 export async function chatCompletion(
@@ -34,13 +35,13 @@ export async function chatCompletion(
     temperature?: number;
     maxTokens?: number;
   },
-): Promise<DeepSeekResponse> {
-  if (!DEEPSEEK_API_KEY) {
-    throw new Error('DEEPSEEK_API_KEY 环境变量未设置，请在 .env 或系统环境变量中配置');
+): Promise<ChatResponse> {
+  if (!AI_API_KEY) {
+    throw new Error('ARK_API_KEY（或 DEEPSEEK_API_KEY）环境变量未设置，请在 .env 或系统环境变量中配置');
   }
 
   const body: Record<string, any> = {
-    model: DEEPSEEK_MODEL,
+    model: AI_MODEL,
     messages,
     stream: false,
     temperature: options?.temperature ?? appConfig.deepseek.temperature,
@@ -51,28 +52,28 @@ export async function chatCompletion(
     body.response_format = { type: 'json_object' };
   }
 
-  logger.info(`[DeepSeek] 调用模型: ${DEEPSEEK_MODEL}, 消息数: ${messages.length}`);
+  logger.info(`[AI] 调用模型: ${AI_MODEL}, 消息数: ${messages.length}`);
 
-  const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      Authorization: `Bearer ${AI_API_KEY}`,
     },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    logger.error(`[DeepSeek] API 错误 ${response.status}: ${errorText}`);
-    throw new Error(`DeepSeek API 调用失败 (${response.status}): ${errorText}`);
+    logger.error(`[AI] API 错误 ${response.status}: ${errorText}`);
+    throw new Error(`AI API 调用失败 (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content ?? '';
 
   logger.info(
-    `[DeepSeek] 调用成功, tokens: ${data.usage?.total_tokens ?? 'unknown'}`,
+    `[AI] 调用成功, tokens: ${data.usage?.total_tokens ?? 'unknown'}`,
   );
 
   return {
@@ -82,7 +83,7 @@ export async function chatCompletion(
 }
 
 /**
- * 调用 DeepSeek 并解析 JSON 输出
+ * 调用 AI 大模型并解析 JSON 输出
  * 自动在 system prompt 中追加 JSON 格式要求
  */
 export async function chatForJson<T = any>(
@@ -109,7 +110,7 @@ export async function chatForJson<T = any>(
   try {
     return JSON.parse(jsonStr) as T;
   } catch (err) {
-    logger.error('[DeepSeek] JSON 解析失败:', jsonStr.substring(0, 200));
+    logger.error('[AI] JSON 解析失败:', jsonStr.substring(0, 200));
     throw new Error('大模型返回的数据格式不正确，无法解析为 JSON');
   }
 }

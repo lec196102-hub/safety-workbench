@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, type DragEvent, type ChangeEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, type DragEvent, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -8,6 +8,8 @@ import {
   Paperclip,
   Download,
   X,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Image,
   FileSpreadsheet,
@@ -144,7 +146,7 @@ export default function DailyHazardsPage() {
     location: '',
     description: '',
     responsible: '',
-    acceptTime: formTestDefaults.acceptTime,
+    acceptTime: '',
     status: 'unfixed' as HazardStatus,
   });
   const [newAttachments, setNewAttachments] = useState<IAttachment[]>([]);
@@ -176,6 +178,22 @@ export default function DailyHazardsPage() {
     });
     return list;
   }, [filteredHazards, sortField, sortOrder]);
+
+  // 分页
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jumpPage, setJumpPage] = useState('');
+  const pageSize = appConfig.pagination.defaultPageSize;
+  const totalPages = Math.max(1, Math.ceil(sortedHazards.length / pageSize));
+  const paginatedHazards = useMemo(() => {
+    const safePage = Math.min(currentPage, totalPages);
+    const start = (safePage - 1) * pageSize;
+    return sortedHazards.slice(start, start + pageSize);
+  }, [sortedHazards, currentPage, totalPages]);
+
+  // 筛选或数据变化时重置到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startDate, endDate, sortedHazards.length]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -460,7 +478,7 @@ export default function DailyHazardsPage() {
         location: '',
         description: '',
         responsible: '',
-        acceptTime: formData.date,
+        acceptTime: '',
         status: 'unfixed',
       });
       setNewAttachments([]);
@@ -530,7 +548,8 @@ export default function DailyHazardsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const handleSaveEdit = async () => {
     if (!editHazard || !editField) return;
-    if (!editValue.trim()) {
+    // 验收时间允许为空（默认回填记录日期），其他字段不能为空
+    if (editField !== 'acceptTime' && !editValue.trim()) {
       toast.error('内容不能为空');
       return;
     }
@@ -1111,9 +1130,9 @@ export default function DailyHazardsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedHazards.map((h: IHazard, index: number) => (
+                  paginatedHazards.map((h: IHazard, index: number) => (
                     <TableRow key={h.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell className="font-medium">{(currentPage - 1) * pageSize + index + 1}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <EditableCell hazard={h} field="date" isDate />
                       </TableCell>
@@ -1212,6 +1231,59 @@ export default function DailyHazardsPage() {
               </TableBody>
             </Table>
           </div>
+          {sortedHazards.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-3">
+              <div className="text-sm text-muted-foreground">
+                共 {sortedHazards.length} 条，每页 {pageSize} 条
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="gap-1"
+                >
+                  <ChevronLeft className="size-4" />
+                  上一页
+                </Button>
+                <div className="text-sm text-foreground">
+                  第 <span className="font-medium">{currentPage}</span> / {totalPages} 页
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="gap-1"
+                >
+                  下一页
+                  <ChevronRight className="size-4" />
+                </Button>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-muted-foreground">跳至</span>
+                  <Input
+                    type="number"
+                    value={jumpPage}
+                    onChange={(e) => setJumpPage(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === 'Enter') {
+                        const n = parseInt(jumpPage, 10);
+                        if (!isNaN(n) && n >= 1 && n <= totalPages) {
+                          setCurrentPage(n);
+                          setJumpPage('');
+                        }
+                      }
+                    }}
+                    min={1}
+                    max={totalPages}
+                    className="h-8 w-16 text-center text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">页</span>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1409,26 +1481,49 @@ export default function DailyHazardsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {att.type.startsWith('image/') && att.dataUrl && (
+                      {att.type.startsWith('image/') && att.url && (
                         <Button
                           size="icon"
                           variant="ghost"
                           className="size-8"
                           onClick={() => {
-                            window.open(att.dataUrl, '_blank');
+                            window.open(att.url, '_blank');
                           }}
+                          title="预览图片"
                         >
                           <Eye className="size-4" />
                         </Button>
                       )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => handlePreviewRemoveAttachment(att.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {att.url && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8"
+                          onClick={() => {
+                            const a = document.createElement('a');
+                            a.href = att.url!;
+                            a.download = att.name;
+                            a.target = '_blank';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }}
+                          title="下载附件"
+                        >
+                          <Download className="size-4" />
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-destructive hover:text-destructive"
+                          onClick={() => handlePreviewRemoveAttachment(att.id)}
+                          title="删除附件"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1459,12 +1554,26 @@ export default function DailyHazardsPage() {
                 autoFocus
               />
             ) : editField === 'date' || editField === 'acceptTime' ? (
-              <Input
-                type="date"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                autoFocus
-              />
+              <div className="space-y-2">
+                <Input
+                  type="date"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  autoFocus
+                />
+                {editField === 'acceptTime' && editValue && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={() => setEditValue('')}
+                  >
+                    <X className="size-3" />
+                    清除验收时间
+                  </Button>
+                )}
+              </div>
             ) : (
               <Input
                 value={editValue}

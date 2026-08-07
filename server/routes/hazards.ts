@@ -62,6 +62,30 @@ router.get('/', authMiddleware, (req, res) => {
   sql += ' ORDER BY h.date DESC, h.created_at DESC';
 
   const rows = db.prepare(sql).all(...params) as any[];
+  // 获取所有附件（按隐患ID分组）
+  const hazardIds = rows.map((r) => r.id);
+  let allAttachments: any[] = [];
+  if (hazardIds.length > 0) {
+    const placeholders = hazardIds.map(() => '?').join(',');
+    allAttachments = db.prepare(
+      `SELECT * FROM attachments WHERE hazard_id IN (${placeholders}) ORDER BY upload_time`
+    ).all(...hazardIds) as any[];
+  }
+  const attachmentsByHazard = new Map<string, any[]>();
+  for (const att of allAttachments) {
+    if (!attachmentsByHazard.has(att.hazard_id)) {
+      attachmentsByHazard.set(att.hazard_id, []);
+    }
+    attachmentsByHazard.get(att.hazard_id)!.push({
+      id: att.id,
+      name: att.name,
+      size: att.size,
+      type: att.type,
+      url: `/api/hazards/attachments/${att.id}/file`,
+      uploadTime: att.upload_time,
+    });
+  }
+
   const hazards = rows.map((row) => ({
     id: row.id,
     date: row.date,
@@ -70,7 +94,7 @@ router.get('/', authMiddleware, (req, res) => {
     responsible: row.responsible,
     acceptTime: row.accept_time,
     status: row.status,
-    attachments: [], // 列表不返回附件详情，详情接口单独返回
+    attachments: attachmentsByHazard.get(row.id) ?? [],
   }));
   res.json(hazards);
 });
@@ -105,10 +129,12 @@ router.get('/:id', authMiddleware, (req, res) => {
 // 新增隐患
 router.post('/', authMiddleware, (req, res) => {
   const { date, location, description, responsible, acceptTime, status } = req.body;
-  if (!date || !location || !description || !responsible || !acceptTime) {
+  if (!date || !location || !description || !responsible) {
     res.status(400).json({ error: '请填写完整信息' });
     return;
   }
+  // 验收时间可选，留空则存空字符串
+  const finalAcceptTime = acceptTime ? acceptTime.trim() : '';
   const id = Date.now().toString();
   const now = new Date().toISOString();
   db.prepare(`
@@ -120,7 +146,7 @@ router.post('/', authMiddleware, (req, res) => {
     location.trim(),
     description.trim(),
     responsible.trim(),
-    acceptTime,
+    finalAcceptTime,
     status || 'unfixed',
     req.user!.userId,
     now,
@@ -132,7 +158,7 @@ router.post('/', authMiddleware, (req, res) => {
     location: location.trim(),
     description: description.trim(),
     responsible: responsible.trim(),
-    acceptTime,
+    acceptTime: finalAcceptTime,
     status: status || 'unfixed',
     attachments: [],
   });
@@ -152,8 +178,9 @@ router.put('/:id', authMiddleware, adminMiddleware, (req, res) => {
   const fieldMap: Record<string, string> = hazardConfig.dbFieldMap;
   for (const [key, dbKey] of Object.entries(fieldMap)) {
     if (req.body[key] !== undefined) {
+      let val = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
       fields.push(`${dbKey} = ?`);
-      values.push(typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key]);
+      values.push(val);
     }
   }
   if (fields.length === 0) {
@@ -252,7 +279,7 @@ router.post('/batch-import', authMiddleware, adminMiddleware, (req, res) => {
         item.location || hazardConfig.importDefaults.location,
         item.description || hazardConfig.importDefaults.description,
         item.responsible || hazardConfig.importDefaults.responsible,
-        item.acceptTime || item.accept_time || now.slice(0, 10),
+        item.acceptTime || item.accept_time || '',
         item.status || 'unfixed',
         req.user!.userId,
         now,

@@ -1,67 +1,130 @@
-// EXPORTS: api, setAuthToken, clearAuthToken
+// EXPORTS: api, setAuthToken, clearAuthToken, getAuthToken
+// 原生 fetch 封装，使用 localStorage 持久化 JWT token
+// 所有请求自动携带 Authorization: Bearer <token>
 
-import { axiosForBackend, logger } from '@lark-apaas/client-toolkit-lite';
+import appConfig from '@/data/app-config.json';
 
-let authToken = '';
+const TOKEN_KEY = appConfig.storageKeys.token;
+
+// ---- Token 管理 ----
+
+export function getAuthToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
 
 export function setAuthToken(token: string) {
-  authToken = token;
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
 }
 
 export function clearAuthToken() {
-  authToken = '';
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
 }
+
+// ---- 简易 logger ----
+
+const log = {
+  info: (...args: any[]) => console.log('[API]', ...args),
+  error: (...args: any[]) => console.error('[API]', ...args),
+  warn: (...args: any[]) => console.warn('[API]', ...args),
+};
+
+// ---- 请求封装 ----
 
 interface RequestOptions {
   method?: string;
   params?: Record<string, any>;
   body?: any;
   headers?: Record<string, string>;
+  /** 为 true 时不自动添加 Authorization 头（登录接口用） */
+  noAuth?: boolean;
+  /** 为 true 时 body 作为 FormData 直接传递（文件上传用） */
+  formData?: boolean;
 }
 
-function buildUrl(endpoint: string): string {
-  if (endpoint.startsWith('http')) return endpoint;
-  // 后端所有路由统一挂在 /api 前缀下（server/index.ts: app.use('/api/...')
+function buildUrl(endpoint: string, params?: Record<string, any>): string {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  return `/api${path}`;
+  const url = `/api${path}`;
+  if (!params) return url;
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') {
+      search.append(k, String(v));
+    }
+  }
+  const qs = search.toString();
+  return qs ? `${url}?${qs}` : url;
 }
 
 export async function api<T = any>(
   endpoint: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = 'GET', params, body, headers: customHeaders } = options;
+  const { method = 'GET', params, body, headers: customHeaders, noAuth, formData } = options;
 
   const headers: Record<string, string> = { ...customHeaders };
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  if (!noAuth) {
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  if (!formData && body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const url = buildUrl(endpoint, params);
+  const fetchOptions: RequestInit = { method, headers };
+
+  if (body !== undefined) {
+    fetchOptions.body = formData ? (body as FormData) : JSON.stringify(body);
   }
 
   try {
-    const response = await axiosForBackend.request({
-      url: buildUrl(endpoint),
-      method,
-      params,
-      data: body,
-      headers,
-      // 后端用自定义 JWT，不需要平台自动附加的凭证头冲突时以我们的为准
-      withCredentials: false,
-    });
-    return response.data as T;
-  } catch (err: any) {
-    if (err.response) {
-      const data = err.response.data;
-      const msg =
-        (typeof data === 'string' ? data : data?.error) || `请求失败 (${err.response.status})`;
-      logger.error(`API Error ${endpoint}: ${String(msg)}`);
+    const response = await fetch(url, fetchOptions);
+
+    // 401: token 过期或无效
+    if (response.status === 401) {
+      clearAuthToken();
+      throw new Error('登录已过期，请重新登录');
+    }
+
+    // 尝试解析 JSON
+    const text = await response.text();
+    let data: any;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const msg = (typeof data === 'object' && data?.error) || `请求失败 (${response.status})`;
+      log.error(`${endpoint}: ${msg}`);
       throw new Error(String(msg));
     }
-    if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-      const msg = '网络连接失败，请检查后端服务是否启动';
-      logger.error(msg);
-      throw new Error(msg);
+
+    return data as T;
+  } catch (err: any) {
+    if (err.message === '登录已过期，请重新登录') {
+      throw err;
     }
-    logger.error(`API Error ${endpoint}: ${String(err?.message ?? err)}`);
+    if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+      log.error('网络连接失败');
+      throw new Error('网络连接失败，请检查网络或后端服务');
+    }
+    log.error(`${endpoint}: ${String(err?.message ?? err)}`);
     throw err;
   }
 }
@@ -70,8 +133,8 @@ export async function api<T = any>(
 api.get = <T = any>(url: string, params?: Record<string, any>) =>
   api<T>(url, { method: 'GET', params });
 
-api.post = <T = any>(url: string, body?: any) =>
-  api<T>(url, { method: 'POST', body });
+api.post = <T = any>(url: string, body?: any, opts?: Omit<RequestOptions, 'method' | 'body'>) =>
+  api<T>(url, { ...opts, method: 'POST', body });
 
 api.put = <T = any>(url: string, body?: any) =>
   api<T>(url, { method: 'PUT', body });
@@ -80,4 +143,4 @@ api.delete = <T = any>(url: string) =>
   api<T>(url, { method: 'DELETE' });
 
 api.upload = <T = any>(url: string, formData: FormData) =>
-  api<T>(url, { method: 'POST', body: formData });
+  api<T>(url, { method: 'POST', body: formData, formData: true });

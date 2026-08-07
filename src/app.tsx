@@ -28,7 +28,7 @@ export default function App() {
           <Route index element={<DailyHazardsPage />} />
           <Route path="summary" element={<HazardSummaryPage />} />
           <Route path="memo" element={<MemoPage />} />
-          <Route path="files" element={<SafetyFilesPage />} />
+          <Route path="files" element={<ProtectedRoute requireAdmin><SafetyFilesPage /></ProtectedRoute>} />
           <Route path="settings" element={<AccountSettingsPage />} />
         </Route>
 

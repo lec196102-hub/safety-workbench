@@ -1,11 +1,11 @@
-// EXPORTS: IUser, UserRole, useAuth
-// localStorage 版本：本地认证，不依赖后端 API
-// 默认管理员 admin/admin123，子账号存储在 localStorage
+// EXPORTS: IUser, UserRole, useAuth, AuthProvider
+// API 版本：通过后端 API 进行认证，JWT token 由 api.ts 统一管理
+// 用户数据不再写入 localStorage，仅 token 由 api.ts 持久化
 
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { logger } from '@lark-apaas/client-toolkit-lite';
 import appConfig from '@/data/app-config.json';
-import bcrypt from 'bcryptjs';
+import { api, getAuthToken, setAuthToken, clearAuthToken } from '@/lib/api';
 
 export type UserRole = 'admin' | 'user';
 
@@ -14,72 +14,6 @@ export interface IUser {
   username: string;
   role: UserRole;
   createdAt: string;
-}
-
-// 本地存储的用户记录（含密码哈希）
-interface LocalUserRecord {
-  id: string;
-  username: string;
-  password: string; // bcrypt hash
-  role: UserRole;
-  createdAt: string;
-}
-
-const USERS_KEY = '__app_safety_users';
-const CURRENT_USER_KEY = '__app_safety_current_user';
-
-function loadUsers(): LocalUserRecord[] {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (!raw) {
-      // 首次使用，创建默认管理员
-      const admin = appConfig.auth.defaultAdmin;
-      const hashedPwd = bcrypt.hashSync(admin.password, appConfig.auth.bcryptSaltRounds);
-      const adminRecord: LocalUserRecord = {
-        id: admin.id,
-        username: admin.username,
-        password: hashedPwd,
-        role: admin.role as UserRole,
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem(USERS_KEY, JSON.stringify([adminRecord]));
-      return [adminRecord];
-    }
-    return JSON.parse(raw) as LocalUserRecord[];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users: LocalUserRecord[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function loadCurrentUser(): IUser | null {
-  try {
-    const raw = localStorage.getItem(CURRENT_USER_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as IUser;
-  } catch {
-    return null;
-  }
-}
-
-function saveCurrentUser(user: IUser | null) {
-  if (user) {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(CURRENT_USER_KEY);
-  }
-}
-
-function toIUser(record: LocalUserRecord): IUser {
-  return {
-    id: record.id,
-    username: record.username,
-    role: record.role,
-    createdAt: record.createdAt,
-  };
 }
 
 interface AuthContextType {
@@ -104,24 +38,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subUsers, setSubUsers] = useState<IUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 初始化：若 localStorage 中存在 token，调用 GET /auth/me 验证并恢复会话
   useEffect(() => {
-    // 初始化：从 localStorage 恢复登录态
-    loadUsers(); // 确保默认管理员存在
-    const saved = loadCurrentUser();
-    if (saved) {
-      setCurrentUser(saved);
+    let cancelled = false;
+    const token = getAuthToken();
+    if (!token) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+    (async () => {
+      try {
+        const user = await api.get<IUser>('/auth/me');
+        if (!cancelled) {
+          setCurrentUser(user);
+        }
+      } catch (err: any) {
+        logger.error('恢复会话失败:', String(err?.message ?? err));
+        // token 无效或过期，清理本地凭证
+        clearAuthToken();
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 拉取子账号列表（仅管理员）
   const refreshSubUsers = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'admin') return;
     try {
-      const users = loadUsers();
-      const subs = users
-        .filter((u) => u.id !== currentUser.id)
-        .map(toIUser);
+      const users = await api.get<IUser[]>('/users');
+      const subs = users.filter((u) => u.id !== currentUser.id);
       setSubUsers(subs);
     } catch (err: any) {
       logger.error('加载子账号列表失败:', String(err?.message ?? err));
@@ -145,21 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const users = loadUsers();
-        const record = users.find((u) => u.username === trimmedUser);
-        if (!record) {
-          return { success: false, message: '用户名或密码错误' };
-        }
-        if (!bcrypt.compareSync(password, record.password)) {
-          return { success: false, message: '用户名或密码错误' };
-        }
-        const user = toIUser(record);
-        setCurrentUser(user);
-        saveCurrentUser(user);
+        const data = await api.post<{ token: string; user: IUser }>(
+          '/auth/login',
+          { username: trimmedUser, password },
+          { noAuth: true },
+        );
+        setAuthToken(data.token);
+        setCurrentUser(data.user);
         return { success: true, message: '登录成功' };
       } catch (err: any) {
         logger.error('登录失败:', String(err?.message ?? err));
-        return { success: false, message: '登录失败' };
+        return { success: false, message: String(err?.message ?? '登录失败') };
       }
     },
     [],
@@ -167,8 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 退出登录
   const logout = useCallback(() => {
+    clearAuthToken();
     setCurrentUser(null);
-    saveCurrentUser(null);
     setSubUsers([]);
   }, []);
 
@@ -181,20 +128,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const users = loadUsers();
-        const record = users.find((u) => u.id === currentUser.id);
-        if (!record) {
-          return { success: false, message: '用户不存在' };
-        }
-        if (!bcrypt.compareSync(oldPwd, record.password)) {
-          return { success: false, message: '原密码错误' };
-        }
-        record.password = bcrypt.hashSync(newPwd, appConfig.auth.bcryptSaltRounds);
-        saveUsers(users);
-        return { success: true, message: '密码修改成功' };
+        const data = await api.post<{ message: string }>('/auth/change-password', {
+          oldPassword: oldPwd,
+          newPassword: newPwd,
+        });
+        return { success: true, message: data.message || '密码修改成功' };
       } catch (err: any) {
         logger.error('修改密码失败:', String(err?.message ?? err));
-        return { success: false, message: '修改密码失败' };
+        return { success: false, message: String(err?.message ?? '修改密码失败') };
       }
     },
     [currentUser],
@@ -212,24 +153,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const users = loadUsers();
-        if (users.some((u) => u.username === trimmed)) {
-          return { success: false, message: '用户名已存在' };
-        }
-        const newRecord: LocalUserRecord = {
-          id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          username: trimmed,
-          password: bcrypt.hashSync(password, appConfig.auth.bcryptSaltRounds),
-          role: 'user',
-          createdAt: new Date().toISOString(),
-        };
-        users.push(newRecord);
-        saveUsers(users);
+        await api.post<IUser>('/users', { username: trimmed, password });
         await refreshSubUsers();
         return { success: true, message: '子账号创建成功' };
       } catch (err: any) {
         logger.error('创建子账号失败:', String(err?.message ?? err));
-        return { success: false, message: '创建子账号失败' };
+        return { success: false, message: String(err?.message ?? '创建子账号失败') };
       }
     },
     [refreshSubUsers],
@@ -239,14 +168,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deleteUser = useCallback(
     async (userId: string): Promise<{ success: boolean; message: string }> => {
       try {
-        const users = loadUsers();
-        const filtered = users.filter((u) => u.id !== userId);
-        saveUsers(filtered);
+        const data = await api.delete<{ message: string }>(`/users/${userId}`);
         await refreshSubUsers();
-        return { success: true, message: '子账号已删除' };
+        return { success: true, message: data.message || '子账号已删除' };
       } catch (err: any) {
         logger.error('删除子账号失败:', String(err?.message ?? err));
-        return { success: false, message: '删除子账号失败' };
+        return { success: false, message: String(err?.message ?? '删除子账号失败') };
       }
     },
     [refreshSubUsers],
@@ -260,17 +187,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const users = loadUsers();
-        const record = users.find((u) => u.id === userId);
-        if (!record) {
-          return { success: false, message: '用户不存在' };
-        }
-        record.password = bcrypt.hashSync(newPwd, appConfig.auth.bcryptSaltRounds);
-        saveUsers(users);
-        return { success: true, message: '密码重置成功' };
+        const data = await api.post<{ message: string }>(
+          `/users/${userId}/reset-password`,
+          { newPassword: newPwd },
+        );
+        return { success: true, message: data.message || '密码重置成功' };
       } catch (err: any) {
         logger.error('重置密码失败:', String(err?.message ?? err));
-        return { success: false, message: '重置密码失败' };
+        return { success: false, message: String(err?.message ?? '重置密码失败') };
       }
     },
     [],

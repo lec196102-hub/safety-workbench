@@ -1,8 +1,8 @@
 // EXPORTS: IMemo, useMemos
-// localStorage 版本：所有数据存储在浏览器本地
+// 后端 API 版本：所有数据通过 src/lib/api.ts 与后端同步
 
 import { useState, useEffect, useCallback } from 'react';
-import { logger } from '@lark-apaas/client-toolkit-lite';
+import { api } from '@/lib/api';
 
 export interface IMemo {
   id: string;
@@ -12,92 +12,133 @@ export interface IMemo {
   createTime: string;
 }
 
-const STORAGE_KEY = '__app_safety_memos';
-
-function loadMemos(): IMemo[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as IMemo[];
-  } catch {
-    return [];
-  }
-}
-
-function saveMemos(memos: IMemo[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memos));
-  } catch (err) {
-    logger.error('保存备忘录失败:', String(err));
-  }
-}
-
-function genId(): string {
-  return `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export function useMemos() {
   const [memos, setMemos] = useState<IMemo[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 初始化：挂载时从后端加载备忘列表
   useEffect(() => {
-    const data = loadMemos();
-    setMemos(data);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await api.get<IMemo[]>('/memos');
+        if (!cancelled) {
+          setMemos(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('加载备忘录失败:', String(err));
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const persist = useCallback((updater: (prev: IMemo[]) => IMemo[]) => {
-    setMemos((prev) => {
-      const next = updater(prev);
-      saveMemos(next);
-      return next;
-    });
-  }, []);
-
+  // 刷新：重新拉取全量数据
   const refreshMemos = useCallback(async () => {
     setLoading(true);
     try {
-      setMemos(loadMemos());
+      const data = await api.get<IMemo[]>('/memos');
+      setMemos(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('刷新备忘录失败:', String(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // 新增备忘：POST 后插入到列表头部，提供即时 UI 反馈
   const addMemo = useCallback(
     async (content: string, isImportant = false) => {
-      const now = new Date();
-      const newMemo: IMemo = {
-        id: genId(),
-        content,
-        isImportant,
-        isCompleted: false,
-        createTime: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-      };
-      persist((prev) => [newMemo, ...prev]);
-      return newMemo;
+      try {
+        const created = await api.post<IMemo>('/memos', { content, isImportant });
+        setMemos((prev) => [created, ...prev]);
+        return created;
+      } catch (err) {
+        console.error('新增备忘录失败:', String(err));
+        throw err;
+      }
     },
-    [persist],
+    [],
   );
 
+  // 删除备忘：DELETE 后从本地状态移除
   const deleteMemo = useCallback(async (id: string) => {
-    persist((prev) => prev.filter((m) => m.id !== id));
-  }, [persist]);
+    // 乐观更新：先从本地移除
+    setMemos((prev) => prev.filter((m) => m.id !== id));
+    try {
+      await api.delete(`/memos/${id}`);
+    } catch (err) {
+      console.error('删除备忘录失败:', String(err));
+      // 失败时回滚：重新拉取
+      try {
+        const data = await api.get<IMemo[]>('/memos');
+        setMemos(Array.isArray(data) ? data : []);
+      } catch (rollbackErr) {
+        console.error('回滚备忘录失败:', String(rollbackErr));
+      }
+    }
+  }, []);
 
+  // 切换重要状态：PUT 后更新本地状态
   const toggleImportant = useCallback(
     async (id: string) => {
-      persist((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, isImportant: !m.isImportant } : m)),
+      let nextValue = false;
+      setMemos((prev) =>
+        prev.map((m) => {
+          if (m.id === id) {
+            nextValue = !m.isImportant;
+            return { ...m, isImportant: nextValue };
+          }
+          return m;
+        }),
       );
+      try {
+        await api.put<IMemo>(`/memos/${id}`, { isImportant: nextValue });
+      } catch (err) {
+        console.error('切换重要状态失败:', String(err));
+        // 失败时回滚该项
+        setMemos((prev) =>
+          prev.map((m) =>
+            m.id === id ? { ...m, isImportant: !nextValue } : m,
+          ),
+        );
+      }
     },
-    [persist],
+    [],
   );
 
+  // 切换完成状态：PUT 后更新本地状态
   const toggleCompleted = useCallback(
     async (id: string) => {
-      persist((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, isCompleted: !m.isCompleted } : m)),
+      let nextValue = false;
+      setMemos((prev) =>
+        prev.map((m) => {
+          if (m.id === id) {
+            nextValue = !m.isCompleted;
+            return { ...m, isCompleted: nextValue };
+          }
+          return m;
+        }),
       );
+      try {
+        await api.put<IMemo>(`/memos/${id}`, { isCompleted: nextValue });
+      } catch (err) {
+        console.error('切换完成状态失败:', String(err));
+        // 失败时回滚该项
+        setMemos((prev) =>
+          prev.map((m) =>
+            m.id === id ? { ...m, isCompleted: !nextValue } : m,
+          ),
+        );
+      }
     },
-    [persist],
+    [],
   );
 
   return {

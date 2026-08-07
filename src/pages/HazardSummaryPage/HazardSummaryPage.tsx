@@ -289,7 +289,8 @@ export default function HazardSummaryPage() {
 
   const handleSaveEdit = async () => {
     if (!editHazard || !editField) return;
-    if (!editValue.trim()) {
+    // 验收时间允许为空（默认回填记录日期），其他字段不能为空
+    if (editField !== 'acceptTime' && !editValue.trim()) {
       toast.error('内容不能为空');
       return;
     }
@@ -916,18 +917,41 @@ export default function HazardSummaryPage() {
                            onClick={() => {
                              window.open(att.url || att.dataUrl, '_blank');
                            }}
+                           title="预览图片"
                          >
                            <Eye className="size-4" />
                          </Button>
                        )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => handlePreviewRemoveAttachment(att.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {(att.url || att.dataUrl) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8"
+                          onClick={() => {
+                            const a = document.createElement('a');
+                            a.href = att.url || att.dataUrl || '';
+                            a.download = att.name;
+                            a.target = '_blank';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }}
+                          title="下载附件"
+                        >
+                          <Download className="size-4" />
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-destructive hover:text-destructive"
+                          onClick={() => handlePreviewRemoveAttachment(att.id)}
+                          title="删除附件"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -958,12 +982,26 @@ export default function HazardSummaryPage() {
                 autoFocus
               />
             ) : editField === 'date' || editField === 'acceptTime' ? (
-              <Input
-                type="date"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                autoFocus
-              />
+              <div className="space-y-2">
+                <Input
+                  type="date"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  autoFocus
+                />
+                {editField === 'acceptTime' && editValue && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={() => setEditValue('')}
+                  >
+                    <X className="size-3" />
+                    清除验收时间
+                  </Button>
+                )}
+              </div>
             ) : (
               <Input
                 value={editValue}
