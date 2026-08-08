@@ -76,7 +76,6 @@ export default function SpecialWorkPage() {
 
   // 筛选
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // 排序
@@ -121,14 +120,13 @@ export default function SpecialWorkPage() {
     const kw = searchKeyword.trim().toLowerCase();
     return works.filter((w) => {
       if (categoryFilter !== 'all' && w.category !== categoryFilter) return false;
-      if (statusFilter !== 'all' && w.status !== statusFilter) return false;
       if (kw) {
         const fields = [w.workTime, w.location, w.applicant, w.approver, w.guardian, w.endTime].map((v) => (v || '').toLowerCase());
         if (!fields.some((f) => f.includes(kw))) return false;
       }
       return true;
     });
-  }, [works, categoryFilter, statusFilter, searchKeyword]);
+  }, [works, categoryFilter, searchKeyword]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -148,7 +146,7 @@ export default function SpecialWorkPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, statusFilter, searchKeyword, works.length]);
+  }, [categoryFilter, searchKeyword, works.length]);
 
   // ---- 操作函数 ----
 
@@ -295,25 +293,13 @@ export default function SpecialWorkPage() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2">
-              <Label className="text-xs">作业类别</Label>
+              <Label className="text-xs">筛选</Label>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="全部" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部</SelectItem>
                   {SPECIAL_WORK_CATEGORY_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">审批状态</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="全部" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部</SelectItem>
-                  {(Object.entries(SPECIAL_WORK_STATUS_LABEL) as [SpecialWorkStatus, string][]).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
