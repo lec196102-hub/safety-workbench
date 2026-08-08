@@ -116,7 +116,8 @@ export default function HazardSummaryPage() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const [startDate, setStartDate] = useState(searchParams.get('start') || '');
   const [endDate, setEndDate] = useState(searchParams.get('end') || '');
-  const [searchKeyword, setSearchKeyword] = useState(searchParams.get('search') || '');
+  // 关键词以 URL 为唯一数据源（避免与侧边栏全局搜索双源冲突）
+  const searchKeyword = searchParams.get('search') || '';
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -186,17 +187,17 @@ export default function HazardSummaryPage() {
   }, [sorted, currentPage]);
 
   // 筛选或数据变化时重置到第一页并清空选择
+  // 注意：searchKeyword 已是 URL 派生值，不再在此回写，否则会与侧边栏搜索产生双源冲突
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-    // 同步 URL 搜索参数
+    // 同步 URL 筛选参数（保留 search 参数不动）
     const params = new URLSearchParams(searchParams);
     if (statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
     if (startDate) params.set('start', startDate); else params.delete('start');
     if (endDate) params.set('end', endDate); else params.delete('end');
-    if (searchKeyword.trim()) params.set('search', searchKeyword.trim()); else params.delete('search');
     setSearchParams(params, { replace: true });
-  }, [statusFilter, startDate, endDate, searchKeyword, hazards.length]);
+  }, [statusFilter, startDate, endDate, hazards.length]);
 
   // 批量选择
   const allCurrentPageSelected =
@@ -612,7 +613,14 @@ export default function HazardSummaryPage() {
                 <Input
                   placeholder="搜索位置/描述/责任人..."
                   value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onChange={(e) => {
+                    const params = new URLSearchParams(searchParams);
+                    const v = e.target.value;
+                    if (v.trim()) params.set('search', v);
+                    else params.delete('search');
+                    setSearchParams(params, { replace: true });
+                    setCurrentPage(1);
+                  }}
                   className="pl-9 w-full"
                 />
               </div>

@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ClipboardList,
   BarChart3,
@@ -52,17 +52,36 @@ interface AppSidebarProps {
 export default function AppSidebar({ open, onClose }: AppSidebarProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, isAdmin, logout } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const isMobile = useIsMobile();
+  const isSummary = pathname === '/summary';
+  // 在汇总页时，搜索框以 URL 为唯一数据源，与页面内搜索框实时同步；非汇总页用本地态暂存
+  const sidebarSearchValue = isSummary ? (searchParams.get('search') || '') : globalSearch;
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (isSummary) {
+      const params = new URLSearchParams(searchParams);
+      if (v.trim()) params.set('search', v);
+      else params.delete('search');
+      setSearchParams(params, { replace: true });
+    } else {
+      setGlobalSearch(v);
+    }
+  };
 
   const handleGlobalSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const kw = globalSearch.trim();
+      const kw = (isSummary ? (searchParams.get('search') || '') : globalSearch).trim();
       if (kw) {
-        navigate(`/summary?search=${encodeURIComponent(kw)}`);
-        setGlobalSearch('');
+        if (!isSummary) {
+          navigate(`/summary?search=${encodeURIComponent(kw)}`);
+          setGlobalSearch('');
+        }
+        // 在汇总页时 URL 已随输入实时更新，无需额外跳转
         onClose?.();
       }
     }
@@ -123,8 +142,8 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-white/50" />
           <Input
             placeholder="全局搜索隐患..."
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
+            value={sidebarSearchValue}
+            onChange={handleSearchChange}
             onKeyDown={handleGlobalSearch}
             className="pl-9 h-9 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-white/30"
           />
