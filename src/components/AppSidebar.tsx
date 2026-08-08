@@ -44,6 +44,11 @@ const NAV_ITEMS = navConfig.navItems.map((item) => ({
   icon: ICON_MAP[item.icon],
 }));
 
+// 全局搜索：规划中的功能，当前版本暂不启用（侧边栏搜索框隐藏）。
+// 未来如需开发跨模块全局搜索，将下方开关置为 true 即可恢复搜索框，
+// 其 URL 单一数据源联动逻辑（与 /summary 页同步）已就绪，无需重写。
+const ENABLE_GLOBAL_SEARCH = false;
+
 interface AppSidebarProps {
   open?: boolean;
   onClose?: () => void;
@@ -136,19 +141,22 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
       {/* 分隔线 */}
       <div className="mx-6 h-px bg-white/20" />
 
-      {/* 全局搜索 */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-white/50" />
-          <Input
-            placeholder="全局搜索隐患..."
-            value={sidebarSearchValue}
-            onChange={handleSearchChange}
-            onKeyDown={handleGlobalSearch}
-            className="pl-9 h-9 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-white/30"
-          />
+      {/* 全局搜索：规划中功能，当前版本隐藏（ENABLE_GLOBAL_SEARCH=false）。
+          未来开发跨模块搜索时置为 true 即可恢复，URL 联动逻辑已就绪。 */}
+      {ENABLE_GLOBAL_SEARCH && (
+        <div className="px-4 pt-4 pb-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-white/50" />
+            <Input
+              placeholder="全局搜索隐患..."
+              value={sidebarSearchValue}
+              onChange={handleSearchChange}
+              onKeyDown={handleGlobalSearch}
+              className="pl-9 h-9 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-white/30"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 导航菜单 */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 md:space-y-2 md:px-4 md:py-6">
