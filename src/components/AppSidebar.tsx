@@ -9,6 +9,7 @@ import {
   User,
   ChevronDown,
   X,
+  Search,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -20,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -50,7 +52,19 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
   const navigate = useNavigate();
   const { currentUser, isAdmin, logout } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
   const isMobile = useIsMobile();
+
+  const handleGlobalSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const kw = globalSearch.trim();
+      if (kw) {
+        navigate(`/summary?search=${encodeURIComponent(kw)}`);
+        setGlobalSearch('');
+        onClose?.();
+      }
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -100,6 +114,20 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
 
       {/* 分隔线 */}
       <div className="mx-6 h-px bg-white/20" />
+
+      {/* 全局搜索 */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-white/50" />
+          <Input
+            placeholder="全局搜索隐患..."
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+            onKeyDown={handleGlobalSearch}
+            className="pl-9 h-9 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 focus:border-white/30"
+          />
+        </div>
+      </div>
 
       {/* 导航菜单 */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 md:space-y-2 md:px-4 md:py-6">

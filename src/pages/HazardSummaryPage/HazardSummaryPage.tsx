@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ArrowUpDown,
   Filter,
@@ -17,6 +18,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,9 +112,11 @@ export default function HazardSummaryPage() {
     batchAddHazards,
   } = useHazards();
   const { isAdmin } = useAuth();
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
+  const [startDate, setStartDate] = useState(searchParams.get('start') || '');
+  const [endDate, setEndDate] = useState(searchParams.get('end') || '');
+  const [searchKeyword, setSearchKeyword] = useState(searchParams.get('search') || '');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -147,13 +151,18 @@ export default function HazardSummaryPage() {
 
   // 筛选
   const filtered = useMemo(() => {
+    const kw = searchKeyword.trim().toLowerCase();
     return hazards.filter((h) => {
       if (statusFilter !== 'all' && h.status !== statusFilter) return false;
       if (startDate && h.date < startDate) return false;
       if (endDate && h.date > endDate) return false;
+      if (kw) {
+        const fields = [h.date, h.location, h.description, h.responsible, h.acceptTime || ''].map((v) => (v || '').toLowerCase());
+        if (!fields.some((f) => f.includes(kw))) return false;
+      }
       return true;
     });
-  }, [hazards, statusFilter, startDate, endDate]);
+  }, [hazards, statusFilter, startDate, endDate, searchKeyword]);
 
   // 排序
   const sorted = useMemo(() => {
@@ -180,7 +189,14 @@ export default function HazardSummaryPage() {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [statusFilter, startDate, endDate, hazards.length]);
+    // 同步 URL 搜索参数
+    const params = new URLSearchParams(searchParams);
+    if (statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
+    if (startDate) params.set('start', startDate); else params.delete('start');
+    if (endDate) params.set('end', endDate); else params.delete('end');
+    if (searchKeyword.trim()) params.set('search', searchKeyword.trim()); else params.delete('search');
+    setSearchParams(params, { replace: true });
+  }, [statusFilter, startDate, endDate, searchKeyword, hazards.length]);
 
   // 批量选择
   const allCurrentPageSelected =
@@ -588,6 +604,18 @@ export default function HazardSummaryPage() {
                     <SelectItem value="fixed">已整改</SelectItem>
                   </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 flex-1 min-w-[180px] max-w-[280px]">
+              <Label className="text-xs">关键词搜索</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索位置/描述/责任人..."
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  className="pl-9 w-full"
+                />
+              </div>
             </div>
             <div className="text-sm text-muted-foreground">
               共 {sorted.length} 条记录
