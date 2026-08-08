@@ -34,6 +34,7 @@ export function getFileColor(type: string, name?: string): string {
   )
     return fileTypeColors.spreadsheet;
   if (type.includes('word')) return fileTypeColors.word;
+  if (type.startsWith('video/')) return fileTypeColors.video;
 
   return fileTypeColors.default;
 }

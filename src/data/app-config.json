@@ -4,7 +4,7 @@
     "user": "safety_user"
   },
   "fileLimits": {
-    "hazardAttachmentMaxSize": 10485760,
+    "hazardAttachmentMaxSize": 104857600,
     "safetyFileMaxSize": 20971520,
     "bodyLimit": "10mb"
   },
@@ -12,7 +12,7 @@
     "defaultPageSize": 10
   },
   "acceptedFileTypes": {
-    "hazardAttachment": "image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx",
+    "hazardAttachment": "image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx,.mp4,.mov,video/mp4,video/quicktime",
     "excelImport": ".xlsx,.xls"
   },
   "auth": {

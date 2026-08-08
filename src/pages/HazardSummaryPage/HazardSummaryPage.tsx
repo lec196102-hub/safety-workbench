@@ -434,7 +434,7 @@ export default function HazardSummaryPage() {
       return (
         <span
           className={
-            truncate ? 'block max-w-[240px] truncate' : 'whitespace-nowrap'
+            truncate ? 'max-w-[480px] line-clamp-2' : 'whitespace-nowrap'
           }
         >
           {hazard[field]}
@@ -448,7 +448,7 @@ export default function HazardSummaryPage() {
       >
         <span
           className={
-            truncate ? 'block max-w-[240px] truncate' : 'whitespace-nowrap'
+            truncate ? 'max-w-[480px] line-clamp-2' : 'whitespace-nowrap'
           }
         >
           {hazard[field]}
