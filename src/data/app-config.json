@@ -37,7 +37,9 @@
     "user": "user_",
     "folder": "folder-",
     "file": "file-",
-    "attachment": "att-"
+    "attachment": "att-",
+    "specialWork": "sw-",
+    "specialWorkAtt": "swatt-"
   },
   "defaultFolders": [
     { "id": "default", "name": "默认文件夹", "isDefault": true },

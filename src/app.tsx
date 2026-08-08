@@ -8,6 +8,7 @@ import HazardSummaryPage from "@/pages/HazardSummaryPage/HazardSummaryPage";
 import MemoPage from "@/pages/MemoPage/MemoPage";
 import SafetyFilesPage from "@/pages/SafetyFilesPage/SafetyFilesPage";
 import AccountSettingsPage from "@/pages/AccountSettingsPage/AccountSettingsPage";
+import SpecialWorkPage from "@/pages/SpecialWorkPage/SpecialWorkPage";
 import NotFoundPage from "@/pages/NotFoundPage/NotFoundPage";
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
         >
           <Route index element={<DailyHazardsPage />} />
           <Route path="summary" element={<HazardSummaryPage />} />
+          <Route path="special-work" element={<SpecialWorkPage />} />
           <Route path="memo" element={<MemoPage />} />
           <Route path="files" element={<ProtectedRoute requireAdmin><SafetyFilesPage /></ProtectedRoute>} />
           <Route path="settings" element={<AccountSettingsPage />} />

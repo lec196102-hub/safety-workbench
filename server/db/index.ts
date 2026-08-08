@@ -102,6 +102,33 @@ db.exec(`
     upload_time TEXT NOT NULL,
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS special_works (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL DEFAULT 'hot_work',
+    work_time TEXT NOT NULL,
+    location TEXT NOT NULL,
+    applicant TEXT NOT NULL,
+    approver TEXT NOT NULL,
+    guardian TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS special_work_attachments (
+    id TEXT PRIMARY KEY,
+    work_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    upload_time TEXT NOT NULL,
+    FOREIGN KEY (work_id) REFERENCES special_works(id) ON DELETE CASCADE
+  );
 `);
 
 // 初始化默认数据

@@ -7,6 +7,7 @@
   "navItems": [
     { "path": "/", "label": "未整改安全隐患", "icon": "ClipboardList", "end": true },
     { "path": "/summary", "label": "隐患汇总", "icon": "BarChart3", "end": false },
+    { "path": "/special-work", "label": "特种作业审批", "icon": "ClipboardCheck", "end": false },
     { "path": "/memo", "label": "备忘录", "icon": "StickyNote", "end": false },
     { "path": "/files", "label": "安全资料", "icon": "FolderOpen", "end": false }
   ],

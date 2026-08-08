@@ -17,6 +17,7 @@ import hazardRoutes from './routes/hazards';
 import memoRoutes from './routes/memos';
 import safetyFileRoutes from './routes/safety-files';
 import aiRoutes from './routes/ai';
+import specialWorkRoutes from './routes/special-work';
 
 const app = express();
 const PORT = Number(process.env.SERVER_PORT || process.env.PORT || appConfig.server.port);
@@ -33,6 +34,7 @@ app.use('/api/hazards', hazardRoutes);
 app.use('/api/memos', memoRoutes);
 app.use('/api/safety-files', safetyFileRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/special-work', specialWorkRoutes);
 
 // 健康检查
 app.get('/api/health', (_req, res) => {

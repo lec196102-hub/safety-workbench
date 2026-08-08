@@ -10,6 +10,7 @@ import {
   ChevronDown,
   X,
   Search,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   StickyNote,
   FolderOpen,
   Settings,
+  ClipboardCheck,
 };
 
 const NAV_ITEMS = navConfig.navItems.map((item) => ({
