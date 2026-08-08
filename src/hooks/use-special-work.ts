@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@lark-apaas/client-toolkit-lite';
-import { api } from '@/lib/api';
+import { api, getAuthToken } from '@/lib/api';
 import {
   type ISpecialWork,
   type ISpecialWorkAttachment,
@@ -132,23 +132,53 @@ export function useSpecialWork() {
     }
   }, [refreshWorks]);
 
-  // 添加附件
+  // 添加附件（XHR 实现，支持上传进度回调）
   const addAttachment = useCallback(
-    async (workId: string, file: File): Promise<ISpecialWorkAttachment> => {
+    async (
+      workId: string,
+      file: File,
+      onProgress?: (pct: number) => void,
+    ): Promise<ISpecialWorkAttachment> => {
       try {
+        const token = getAuthToken();
         const formData = new FormData();
         formData.append('file', file);
-        const attachment = await api.upload<ISpecialWorkAttachment>(
-          `/special-work/${workId}/attachments`,
-          formData,
-        );
+        const url = `/api/special-work/${workId}/attachments`;
+        const result = await new Promise<ISpecialWorkAttachment>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url);
+          if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable && onProgress) {
+              onProgress(Math.round((ev.loaded / ev.total) * 100));
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText));
+              } catch {
+                resolve({} as ISpecialWorkAttachment);
+              }
+            } else {
+              let msg = '上传失败';
+              try {
+                const d = JSON.parse(xhr.responseText);
+                if (d?.error) msg = d.error;
+              } catch { /* ignore */ }
+              reject(new Error(msg));
+            }
+          };
+          xhr.onerror = () => reject(new Error('网络连接失败，请检查网络'));
+          xhr.send(formData);
+        });
         const att: ISpecialWorkAttachment = {
-          id: attachment?.id ?? '',
-          name: attachment?.name ?? file.name,
-          size: attachment?.size ?? file.size,
-          type: attachment?.type ?? (file.type || 'application/octet-stream'),
-          url: attachment?.url,
-          uploadTime: attachment?.uploadTime ?? '',
+          id: result?.id ?? '',
+          name: result?.name ?? file.name,
+          size: result?.size ?? file.size,
+          type: result?.type ?? (file.type || 'application/octet-stream'),
+          url: result?.url,
+          uploadTime: result?.uploadTime ?? '',
         };
         setWorks((prev) =>
           prev.map((w) =>

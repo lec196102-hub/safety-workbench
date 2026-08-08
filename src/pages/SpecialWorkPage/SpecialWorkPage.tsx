@@ -20,6 +20,7 @@ import {
   Search,
   Plus,
   ClipboardCheck,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -89,7 +91,9 @@ export default function SpecialWorkPage() {
   const [editTarget, setEditTarget] = useState<ISpecialWork | null>(null);
   const [viewTarget, setViewTarget] = useState<ISpecialWork | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ISpecialWork | null>(null);
-  const [imagePreview, setImagePreview] = useState<{ url: string; name: string } | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ url: string; name: string; loading?: boolean } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; pct: number } | null>(null);
+  const previewCache = useRef<Map<string, string>>(new Map());
 
   // 表单字段
   const [formCategory, setFormCategory] = useState<SpecialWorkCategory>('hot_work');
@@ -214,17 +218,23 @@ export default function SpecialWorkPage() {
 
   const handleAttachAdd = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length || !viewTarget) return;
+    const maxSize = appConfig.fileLimits.hazardAttachmentMaxSize;
+    let okCount = 0;
     for (const file of Array.from(e.target.files)) {
-      if (file.size > appConfig.fileLimits.hazardAttachmentMaxSize) {
-        toast.error(`文件 ${file.name} 超过 10MB，已跳过`);
+      if (file.size > maxSize) {
+        toast.error(`文件 ${file.name} 超过 ${formatFileSize(maxSize)}，已跳过`);
         continue;
       }
       try {
-        const att = await addAttachment(viewTarget.id, file);
+        const att = await addAttachment(viewTarget.id, file, (pct) =>
+          setUploadProgress({ name: file.name, pct }),
+        );
         setViewTarget((prev) => prev ? { ...prev, attachments: [...prev.attachments, att] } : null);
+        okCount += 1;
       } catch { /* toast in hook */ }
     }
-    if (viewTarget) toast.success('附件上传成功');
+    setUploadProgress(null);
+    if (okCount > 0) toast.success(`成功上传 ${okCount} 个附件`);
     e.target.value = '';
   };
 
@@ -577,6 +587,16 @@ export default function SpecialWorkPage() {
                 </div>
                 <input ref={attachInputRef} type="file" multiple accept={appConfig.acceptedFileTypes.hazardAttachment}
                   onChange={handleAttachAdd} className="hidden" />
+
+                {uploadProgress && (
+                  <div className="mb-2 rounded-lg border bg-muted/40 p-2">
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-foreground">上传中：{uploadProgress.name}</span>
+                      <span className="shrink-0 text-muted-foreground">{uploadProgress.pct}%</span>
+                    </div>
+                    <Progress value={uploadProgress.pct} className="h-2" />
+                  </div>
+                )}
                 {viewTarget.attachments.length === 0 ? (
                   <div className="py-6 text-center text-muted-foreground text-sm rounded-lg border border-dashed">暂无附件</div>
                 ) : (
@@ -595,13 +615,24 @@ export default function SpecialWorkPage() {
                         <div className="flex items-center gap-1 shrink-0">
                           {att.type.startsWith('image/') && att.url && (
                             <Button size="icon" variant="ghost" className="size-8" onClick={async () => {
+                              const cached = previewCache.current.get(att.id);
+                              if (cached) {
+                                setImagePreview({ url: cached, name: att.name });
+                                return;
+                              }
+                              setImagePreview({ url: '', name: att.name, loading: true });
                               try {
                                 const token = localStorage.getItem(appConfig.storageKeys.token || 'auth_token');
                                 const res = await fetch(att.url!, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                                 const blob = await res.blob();
-                                setImagePreview({ url: URL.createObjectURL(blob), name: att.name });
-                              } catch { toast.error('预览失败'); }
+                                const url = URL.createObjectURL(blob);
+                                previewCache.current.set(att.id, url);
+                                setImagePreview({ url, name: att.name });
+                              } catch {
+                                setImagePreview(null);
+                                toast.error('预览失败');
+                              }
                             }} title="预览图片"><Eye className="size-4" /></Button>
                           )}
                           {isAdmin && (
@@ -625,17 +656,24 @@ export default function SpecialWorkPage() {
       </Dialog>
 
       {/* 图片预览 */}
-      <Dialog open={!!imagePreview} onOpenChange={(open) => { if (!open) { URL.revokeObjectURL(imagePreview?.url || ''); setImagePreview(null); } }}>
+      <Dialog open={!!imagePreview} onOpenChange={(open) => { if (!open) setImagePreview(null); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto p-0">
           {imagePreview && (
             <>
               <div className="sticky top-0 z-10 flex items-center justify-between bg-background/95 backdrop-blur px-6 py-3 border-b">
                 <DialogTitle className="text-sm font-medium truncate max-w-[70%]">{imagePreview.name}</DialogTitle>
                 <Button variant="ghost" size="icon" className="size-8"
-                  onClick={() => { URL.revokeObjectURL(imagePreview.url); setImagePreview(null); }}>✕</Button>
+                  onClick={() => setImagePreview(null)}>✕</Button>
               </div>
               <div className="flex items-center justify-center p-4 min-h-[200px]">
-                <img src={imagePreview.url} alt={imagePreview.name} className="max-w-full max-h-[75vh] object-contain rounded" />
+                {imagePreview.loading ? (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Loader2 className="size-9 animate-spin" />
+                    <span className="text-sm">加载中…</span>
+                  </div>
+                ) : (
+                  <img src={imagePreview.url} alt={imagePreview.name} className="max-w-full max-h-[75vh] object-contain rounded" />
+                )}
               </div>
             </>
           )}
