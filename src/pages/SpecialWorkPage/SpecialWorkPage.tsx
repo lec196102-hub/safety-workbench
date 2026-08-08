@@ -77,6 +77,8 @@ export default function SpecialWorkPage() {
   // 筛选
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [workStartDate, setWorkStartDate] = useState('');
+  const [workEndDate, setWorkEndDate] = useState('');
 
   // 排序
   const [sortField, setSortField] = useState<SortField>('workTime');
@@ -120,13 +122,15 @@ export default function SpecialWorkPage() {
     const kw = searchKeyword.trim().toLowerCase();
     return works.filter((w) => {
       if (categoryFilter !== 'all' && w.category !== categoryFilter) return false;
+      if (workStartDate && w.workTime < workStartDate) return false;
+      if (workEndDate && w.workTime > workEndDate + 'T23:59') return false;
       if (kw) {
         const fields = [w.workTime, w.location, w.applicant, w.approver, w.guardian, w.endTime].map((v) => (v || '').toLowerCase());
         if (!fields.some((f) => f.includes(kw))) return false;
       }
       return true;
     });
-  }, [works, categoryFilter, searchKeyword]);
+  }, [works, categoryFilter, searchKeyword, workStartDate, workEndDate]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -146,7 +150,7 @@ export default function SpecialWorkPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, searchKeyword, works.length]);
+  }, [categoryFilter, searchKeyword, workStartDate, workEndDate, works.length]);
 
   // ---- 操作函数 ----
 
@@ -293,7 +297,25 @@ export default function SpecialWorkPage() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2">
-              <Label className="text-xs">筛选</Label>
+              <Label className="text-xs">开始时间</Label>
+              <Input
+                type="date"
+                value={workStartDate}
+                onChange={(e) => setWorkStartDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">结束时间</Label>
+              <Input
+                type="date"
+                value={workEndDate}
+                onChange={(e) => setWorkEndDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">类别筛选</Label>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="全部" /></SelectTrigger>
                 <SelectContent>
@@ -312,7 +334,7 @@ export default function SpecialWorkPage() {
                   onChange={(e) => setSearchKeyword(e.target.value)} className="pl-9 w-full" />
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">共 {sorted.length} 条记录</div>
+            <div className="text-sm text-muted-foreground whitespace-nowrap pb-1">共 {sorted.length} 条记录</div>
           </div>
         </CardContent>
       </Card>
